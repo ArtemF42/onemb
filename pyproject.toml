@@ -1,0 +1,13 @@
+[project]
+name = "unified-embedding"
+version = "0.0.42"
+description = "One Embedding to Serve Them All"
+readme = "README.md"
+authors = [{name = "Artem Fatkulin", email = "artem42fatkulin@gmail.com"}]
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+]
+
+[tool.ruff]
+line-length = 100
