@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 import torch.nn as nn
 
@@ -10,18 +12,22 @@ class HashEmbedding(nn.Embedding):
         num_embeddings: int,
         embedding_dim: int,
         padding_index: int | None = None,  # avoid collision with `torch.nn.Embedding.padding_idx`
+        aggregation_mode: Literal["concat", "mean"] = "concat",
     ) -> None:
         super(HashEmbedding, self).__init__(num_embeddings, embedding_dim)
         self.padding_index = padding_index
+        self.aggregation_mode = aggregation_mode
 
     def forward(self, inputs: torch.Tensor, hash_funcs: list[HashFunc]) -> torch.Tensor:
-        inputs_embeds = torch.cat(
-            [
-                super(HashEmbedding, self).forward(hash_func(inputs) % self.num_embeddings)
-                for hash_func in hash_funcs
-            ],
-            dim=-1,
-        )
+        inputs_embeds = [
+            super(HashEmbedding, self).forward(hash_func(inputs) % self.num_embeddings)
+            for hash_func in hash_funcs
+        ]
+
+        if self.aggregation_mode == "concat":
+            inputs_embeds = torch.cat(inputs_embeds, dim=-1)
+        else:
+            inputs_embeds = torch.stack(inputs_embeds, dim=-1).mean(dim=-1)
 
         if self.padding_index is not None:
             inputs_embeds.masked_fill_((inputs == self.padding_index).unsqueeze(-1), 0.0)
@@ -37,11 +43,13 @@ class UnifiedEmbedding(HashEmbedding):
         features: dict[str, int],
         hash_family: HashFamily,
         padding_index: int | None = None,
+        aggregation_mode: Literal["concat", "mean"] = "concat",
     ) -> None:
         super(UnifiedEmbedding, self).__init__(
             num_embeddings=num_embeddings,
             embedding_dim=embedding_dim,
             padding_index=padding_index,
+            aggregation_mode=aggregation_mode,
         )
         self.features = features
         self.hash_family = hash_family
